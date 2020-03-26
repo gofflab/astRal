@@ -1,0 +1,19 @@
+---
+title: "astRal"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{astRal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(astRal)
+```
