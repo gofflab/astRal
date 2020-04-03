@@ -8,17 +8,19 @@
 #' @aliases SpatialExperiment-class
 #' @exportClass SpatialExperiment
 #' @importFrom SingleCellExperiment SingleCellExperiment colData rowData
-#' @importFrom SingleCellExperiment int_elementMetadata int_colData int_metadata elementMetadata
+#' @import SingleCellExperiment
+#' @import SummarizedExperiment
 #' @importFrom SingleCellExperiment reducedDim<- reducedDim reducedDims<-
 #' @importFrom SingleCellExperiment reducedDims
 #' @importFrom SummarizedExperiment Assays colData<- rowData<- assays assays<-
 #' @importFrom S4Vectors metadata metadata<- SimpleList
 setClass("SpatialExperiment",
-         contains=c("SingleCellExperiment"),
          slots = c(
            images = "SimpleList",
+           spatialMap = "SimpleList",
            clusters = "SimpleList"
-         )
+         ),
+         contains="SingleCellExperiment",
 )
 
 #' Create a new SpatialExperiment object.
