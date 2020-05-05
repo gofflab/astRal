@@ -109,3 +109,39 @@ setReplaceMethod("fData", "SpatialExperiment", function(x, value) {
   methods::validObject(x)
   return(x)
 })
+
+#' Generic to access SpatialExperiment embedding slot
+#' @param x A SpatialExperiment object.
+#'
+#' @export
+setGeneric("embeddings", function(x) standardGeneric("embeddings"))
+
+#' Generic to set SpatialExperiment embedding slot element
+#' @param x A SpatialExperiment object.
+#' @param value A LinearEmbeddingObject to add to embeddings(x).
+#' @param name Name of the LEM object to add.
+#'
+#' @export
+setGeneric("embeddings<-", function(x, value, name) standardGeneric("embeddings<-"))
+
+#' Generic to access SpatialExperiment embedding slot
+#' @param x A SpatialExperiment object.
+#'
+#' @export
+setMethod("embeddings", "SpatialExperiment", function(x) {
+  value <- x@embeddings
+  return(value)
+})
+
+#' Method to add to SpatialExperiment embedding slot list.
+#' @param x A SpatialExperiment object.
+#' @param value A LinearEmbeddingObject to add to embeddings(x).
+#' @param name Name of the LEM object to add
+#'
+#' @export
+#' @importClassesFrom S4Vectors List
+setReplaceMethod("embeddings", "SpatialExperiment", function(x, value, name) {
+  x@embeddings[[name]] <- value
+  methods::validObject(x)
+  return(x)
+})

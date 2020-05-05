@@ -11,14 +11,19 @@
 #' @import SingleCellExperiment
 #' @import SummarizedExperiment
 #' @importFrom SingleCellExperiment reducedDim<- reducedDim reducedDims<-
-#' @importFrom SingleCellExperiment reducedDims
+#' @importFrom SingleCellExperiment reducedDims LinearEmbeddingMatrix
 #' @importFrom SummarizedExperiment Assays colData<- rowData<- assays assays<-
+#' @import sf
+# #' @importFrom sp SpatialPoints SpatialPointsDataFrame
 #' @importFrom S4Vectors metadata metadata<- SimpleList
 setClass("SpatialExperiment",
          slots = c(
            images = "SimpleList",
-           spatialMap = "SimpleList",
-           clusters = "SimpleList"
+           spatialMap = "sf",
+           clusters = "SimpleList",
+           embeddings = "SimpleList" #simpleList
+           #dimReductions = "SimpleList"
+
          ),
          contains="SingleCellExperiment",
 )
@@ -38,6 +43,7 @@ setClass("SpatialExperiment",
 #'
 #'
 NewSpatialExperiment <- function(expression_data,
+                              spatial_coords,
                               barcode_metadata = NULL,
                               gene_metadata = NULL) {
 
@@ -46,6 +52,18 @@ NewSpatialExperiment <- function(expression_data,
                           msg = paste("Argument expression_data must be a",
                                       "matrix - either sparse from the",
                                       "Matrix package or dense"))
+
+  #assert that spatial_coords is a data.frame, matrix, or SpatialPixelsDataFrame object
+  assertthat::assert_that(any(class(spatial_coords) %in% c("data.frame","matrix","sf")),
+                          msg = paste("Argument spatial_coords must be a",
+                                      "matrix, data.frame,",
+                                      "or object of class sf"))
+
+
+  assertthat::assert_that(
+                          dim(expression_data)[2] == dim(spatial_coords)[1],
+                          msg = "Rows in spatial_coords must match coumns in expression_data")
+
   if (!is.null(barcode_metadata)) {
     assertthat::assert_that(nrow(barcode_metadata) == ncol(expression_data),
                             msg = paste("barcode_metadata must be NULL or have",
@@ -82,10 +100,15 @@ NewSpatialExperiment <- function(expression_data,
                               rowData = gene_metadata,
                               colData = barcode_metadata)
 
+  #TODO: make sure that non 'sf' objects passed to 'spatial_coords' are appropriately converted to class 'sf' and pass validation.
+  #spatialMap <- SpatialPointsDataFrame(spatial_coords,data.frame(barcode=colnames(sce)))
+  spatialMap <- spatial_coords
+
   spat <- methods::new("SpatialExperiment",
                       assays = SummarizedExperiment::Assays(
                         list(counts=methods::as(expression_data, "dgCMatrix"))),
                       colData = colData(sce),
+                      spatialMap = spatialMap,
                       int_elementMetadata = int_elementMetadata(sce),
                       int_colData = int_colData(sce),
                       int_metadata = int_metadata(sce),
@@ -94,7 +117,7 @@ NewSpatialExperiment <- function(expression_data,
                       elementMetadata = elementMetadata(sce)[,0],
                       rowRanges = rowRanges(sce))
 
-  metadata(spat)$SE_version <- "0.1.0"
+  metadata(spat)$SE_version <- "0.1.1"
   clusters <- stats::setNames(SimpleList(), character(0))
   #spat <- estimate_size_factors(spat)
   spat
