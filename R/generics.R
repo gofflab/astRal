@@ -145,3 +145,19 @@ setReplaceMethod("embeddings", "SpatialExperiment", function(x, value, name) {
   methods::validObject(x)
   return(x)
 })
+
+#' Generic to access SpatialExperiment coordinates from spatialMapslot
+#' @param x A SpatialExperiment object.
+#'
+#' @export
+setGeneric("coordinates", function(x) standardGeneric("coordinates"))
+
+#' Generic to access SpatialExperiment coordinates from spatialMap slot
+#' @param x A SpatialExperiment object.
+#'
+#' @export
+setMethod("coordinates", "SpatialExperiment", function(x) {
+  value <- sf::st_coordinates(x@spatialMap)
+  return(value)
+})
+

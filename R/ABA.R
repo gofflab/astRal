@@ -24,6 +24,7 @@ aba_array_dims<-function(resolution=200){
 #' @param array_spacing numerical value indicating spacing between array point (usually 25 or 200) in uM.
 #'
 #' @importFrom plyr adply
+#' @import sfheaders
 #' @importFrom sfheaders sf_point
 #' @return
 #' @export

@@ -16,4 +16,117 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(astRal)
+library(cocoframer)
+library(purrr)
+library(viridisLite) # optional - nice color palettes
+library(dplyr)
+library(reshape2)
+library(Seurat)
+library(rgl)
+#library(NNLM)
+
 ```
+
+```{r}
+#Sagittal Energy Matrix
+ccf_v3_coords_file<-system.file("extdata","p56coord_dev_v3_left.RData",package="astRal")
+struct_file<-system.file("extdata","p56_dev_structureID_left.RData",package="astRal")
+group_file<-system.file("extdata","group.RData",package="astRal")
+energy_file<-system.file("extdata","energy_dev_v3_sagittal.RData",package="astRal")
+load(ccf_v3_coords_file)
+load(struct_file)
+load(group_file)
+load(energy_file)
+
+```
+
+```{r}
+# Get structure ontology annotations
+#ga <- get_ccf_grid_annotation()
+
+#ontology <- get_mba_ontology()
+#ontology_df <- flatten_mba_ontology(ontology)
+
+full_ccf_annot<-ccf_annotation(age="Adult",
+                               make_array=FALSE,
+                               array_spacing=200)
+
+#energy_mat_dims<-aba_array_dims(resolution=200)
+
+# Add column names to energy matrix
+colnames(energy.mat)<-rownames(full_ccf_annot)
+
+# Reduce full annotation to only that subset with signal in Allen in situ database
+energy.annot<-energy.mat[,coordID_annotation_dev_v3_left]
+reduced.annot<-full_ccf_annot[coordID_annotation_dev_v3_left,]
+
+# build a 3d array of ontology structure acronyms - easier to deal with than IDs
+#oa <- array(ontology_df$acronym[match(ga, ontology_df$id)], dim = dim(ga))
+```
+
+Create SpatialExperiment object from Allen in situ dataset
+```{r}
+se <- NewSpatialExperiment(expression_data=energy.annot,
+                           spatial_coords=reduced.annot,
+                              barcode_metadata = NULL,
+                              gene_metadata = NULL)
+```
+
+```{r}
+spatial_plot_3d(se,color_by="Satb2")
+```
+
+# NNMF Patterns
+```{r,eval=FALSE}
+## NNMF100
+energy.lognorm<-LogNormalize(exprs(se))%>%as.matrix()
+
+# Import existing NNMF120 patterns
+patterns_file <- system.file("extdata","NNMF120.1.RData",package="astRal")
+load(patterns_file)
+pWeights<-NNMF120.1$H
+colnames(pWeights)<-rownames(pData(se))
+rownames(pWeights)<-paste("pattern",c(1:120),sep="_")
+patterns.se<-NewSpatialExperiment(expression_data=pWeights,
+                           spatial_coords=reduced.annot,
+                              barcode_metadata = NULL,
+                              gene_metadata = NULL)
+```
+
+```{r,eval=FALSE}
+open3d()
+
+par3d(windowRect = c(20, 30, 1200, 1200))
+
+n<-20
+start<-101
+
+mat <- matrix(1:n,nrow=4)
+
+layout3d(mat, sharedMouse = TRUE)
+
+xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+  ylim<-xlim
+  zlim<-ylim
+
+for (i in c(start:(start+n))) {
+
+    next3d()
+
+    plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=3,box=F,axes=F,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, main=i, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
+}
+
+```
+
+```{r movie, eval=FALSE}
+i<-106    #67,70,77,101,88
+open3d()
+par3d(windowRect = c(20, 30, 1200, 1200))
+plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=10,box=F,axes=F,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
+movie3d(spin3d(axis = c(1, 1, 1), rpm = 6),duration = 10,movie = paste0("NNMF120",".1","Pattern_", as.character(i)),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+while (rgl.cur() > 0) {
+            rgl.close()
+      }
+```
+
+

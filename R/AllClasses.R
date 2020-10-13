@@ -59,7 +59,7 @@ NewSpatialExperiment <- function(expression_data,
                                       "matrix, data.frame,",
                                       "or object of class sf"))
 
-
+  #assert that columns in expression data and rows in spatial_coords are equal
   assertthat::assert_that(
                           dim(expression_data)[2] == dim(spatial_coords)[1],
                           msg = "Rows in spatial_coords must match coumns in expression_data")
@@ -87,8 +87,13 @@ NewSpatialExperiment <- function(expression_data,
   }
 
   if (is.null(barcode_metadata)) {
-    barcode_metadata <- data.frame(barcode = colnames(expression_data),
+    barcode_metadata <- data.frame(spatial_feature_id = colnames(expression_data),
                                 row.names = colnames(expression_data))
+  }
+
+  if (is.null(gene_metadata)) {
+    gene_metadata <- data.frame(feature_id = rownames(expression_data),
+                                   row.names = make.names(rownames(expression_data),unique=TRUE)) #TODO: enforce unique row names up front and or enforce gene_metadata!=NULL. Hacky but works for now
   }
 
   if(!('gene_short_name' %in% colnames(gene_metadata))) {
@@ -96,6 +101,7 @@ NewSpatialExperiment <- function(expression_data,
                   "named 'gene_short_name' for certain functions."))
   }
 
+  #TODO: Only borrowing this approach until we can create new SpatialExperiment directly...
   sce <- SingleCellExperiment(list(counts=methods::as(expression_data, "dgCMatrix")),
                               rowData = gene_metadata,
                               colData = barcode_metadata)
@@ -118,8 +124,7 @@ NewSpatialExperiment <- function(expression_data,
                       rowRanges = rowRanges(sce))
 
   metadata(spat)$SE_version <- "0.1.1"
-  clusters <- stats::setNames(SimpleList(), character(0))
+  #clusters <- stats::setNames(SimpleList(), character(0))
   #spat <- estimate_size_factors(spat)
   spat
 }
-
