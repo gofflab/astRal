@@ -4,7 +4,12 @@
 \alias{ccf_annotation}
 \title{Get CCFv3 Annotation}
 \usage{
-ccf_annotation(age = "Adult", make_array = FALSE, array_spacing = 200)
+ccf_annotation(
+  age = "Adult",
+  make_array = FALSE,
+  array_spacing = 200,
+  coco_reflect = TRUE
+)
 }
 \arguments{
 \item{age}{One of c("Adult","E11","E13","E15","E18","P4","P14","P28","P56")}
@@ -12,6 +17,8 @@ ccf_annotation(age = "Adult", make_array = FALSE, array_spacing = 200)
 \item{make_array}{Logical argument whether to return the result as a 3D array instead of an object of class 'sf'.}
 
 \item{array_spacing}{numerical value indicating spacing between array point (usually 25 or 200) in uM.}
+
+\item{coco_reflect}{Logical argument to reflect Y and Z axes to match cocoframer mesh spatial orientation}
 }
 \value{
 

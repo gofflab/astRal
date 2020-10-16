@@ -22,13 +22,15 @@ aba_array_dims<-function(resolution=200){
 #' @param age One of c("Adult","E11","E13","E15","E18","P4","P14","P28","P56")
 #' @param make_array Logical argument whether to return the result as a 3D array instead of an object of class 'sf'.
 #' @param array_spacing numerical value indicating spacing between array point (usually 25 or 200) in uM.
+#' @param coco_reflect Logical argument to reflect Y and Z axes to match cocoframer mesh spatial orientation
 #'
 #' @importFrom plyr adply
 #' @import sfheaders
+#' @import scales
 #' @importFrom sfheaders sf_point
 #' @return
 #' @export
-ccf_annotation<-function(age="Adult",make_array=FALSE,array_spacing=200){
+ccf_annotation<-function(age="Adult",make_array=FALSE,array_spacing=200,coco_reflect=TRUE){
   vol_dims<-aba_array_dims(array_spacing)
   print(vol_dims)
   baseFile <- "http://download.alleninstitute.org/informatics-archive/current-release/mouse_annotation/"
@@ -76,8 +78,27 @@ ccf_annotation<-function(age="Adult",make_array=FALSE,array_spacing=200){
     res[indx] <- lapply(res[indx], function(x) as.numeric(as.character(x)))
     res[,1:3]<-res[,1:3]*array_spacing
 
+    if(coco_reflect){
+      # Reflect Y and Z axis to match left hemisphere
+      ymax<-max(res$Y)
+      res$Y<-ymax-res$Y
+      zmax<-max(res$Z)
+      res$Z<-zmax-res$Z
+
+      #Rescale X,Y,Z to match bounding box for root ccf mesh
+      #TODO: this doesn't work because the bounding box for root is not full frame with the ccfv3 annotations
+      coco_root_bbox<-matrix(
+          c(-16.83, 435.76, 485.729,
+          13192.50, 7866.07, 10890.600),
+        byrow=TRUE,nrow=2)
+      #res$X<-scales::rescale(res$X,to=c(coco_root_bbox[1,1],coco_root_bbox[2,1]))
+      #res$Y<-scales::rescale(res$Y,to=c(coco_root_bbox[1,2],coco_root_bbox[2,2]))
+      #res$Z<-scales::rescale(res$Z,to=c(coco_root_bbox[1,3],coco_root_bbox[2,3]))
+    }
+
     #convert to sfg
-    res <- sf_point(res,x="X",y="Y",z="Z",keep=TRUE)
+    res <- sfheaders::sf_point(res,x="X",y="Y",z="Z",keep=TRUE)
+
     return(res)
   }
 }
