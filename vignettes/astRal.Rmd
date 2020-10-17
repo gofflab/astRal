@@ -21,9 +21,11 @@ library(purrr)
 library(viridisLite) # optional - nice color palettes
 library(dplyr)
 library(reshape2)
-library(Seurat)
+#library(Seurat)
 library(rgl)
 library(nat)
+library(Matrix)
+
 #library(sf)
 #library(NNLM)
 
@@ -125,7 +127,7 @@ for (i in c(start:(start+n))) {
 i<-88    #67,70,77,101,88,105,106
 open3d()
 par3d(windowRect = c(20, 30, 1200, 1200))
-plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
+plot3d(coordinates(patterns.se),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
 movie3d(spin3d(axis = c(1, 1, 1), rpm = 6),duration = 10,movie = paste0("NNMF120",".1","Pattern_", as.character(i)),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 while (rgl.cur() > 0) {
             rgl.close()
@@ -156,8 +158,33 @@ points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=infe
 movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0("NNMF120",".1","Pattern_", as.character(i)),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 ```
 
+# Import scRNA-Seq data and convert to cell_data_set
 ```{r}
-#Projection visualization
+target_data_path<-"/Volumes/Data/Users/rotations/weifeng/projection/visual_cortex/GSE71585_RefSeq_counts.csv"
+target_data<-readr::read_csv(target_data_path)
+target_genes<-as.data.frame(target_data[,1])
+rownames(target_genes)<-target_genes$gene
+
+target_data<-as(as.matrix(target_data[,-1]),"sparseMatrix")
+
+rownames(target_data)<-rownames(target_genes)
+
+cell_info<-data.frame(row.names=colnames(target_data),cell_id=colnames(target_data))
+
+cds<-new_cell_data_set(target_data,
+                       gene_metadata=target_genes,
+                       cell_metadata=cell_info)
+
+```
+
+# Projection
+```{r}
+A.weights<-NNMF120.1$W
+length(intersect(rownames(A.weights),rownames(rowData(cds))))
+
+library(projectR)
+
+cell.projections<-projectR(exprs(cds),loadings = A.weights)
 
 ```
 
