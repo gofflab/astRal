@@ -25,7 +25,7 @@ library(reshape2)
 library(rgl)
 library(nat)
 library(Matrix)
-
+#library(monocle3)
 #library(sf)
 #library(NNLM)
 
@@ -56,6 +56,20 @@ full_ccf_annot<-ccf_annotation(age="Adult",
                                array_spacing=200,
                                coco_reflect=TRUE)
 
+
+tree_path<-function(id,ontology_df){
+  if(id==0){
+    return(-1)
+  }else{
+  path<-c(id)
+  while(id!=997){
+    id<-ontology_df$parent_structure_id[ontology_df$id==id]
+    path<-c(path,id)
+  }
+  return(path)
+  }
+}
+
 #energy_mat_dims<-aba_array_dims(resolution=200)
 
 # Add column names to energy matrix
@@ -79,6 +93,9 @@ se <- NewSpatialExperiment(expression_data=energy.annot,
 
 ```{r}
 spatial_plot_3d(se,color_by="Satb2")
+spatial_plot_3d(se,color_by="Otx2")
+spatial_plot_3d(se,color_by="Rorb")
+spatial_plot_3d(se,color_by="Drd1")
 ```
 
 # NNMF Patterns
@@ -88,8 +105,10 @@ spatial_plot_3d(se,color_by="Satb2")
 
 # Import existing NNMF120 patterns
 #patterns_file <- system.file("extdata","NNMF120.1.RData",package="astRal")
-load("inst/extdata/NNMF120.1.RData")
-pWeights<-NNMF120.1$H
+#load("inst/extdata/NNMF120.1.RData")
+load("inst/extdata/Energy_imputed_lognorm_CoGAPS120.RData")
+#pWeights<-NNMF120.1$H
+pWeights<-t(Energy_imputed_lognorm_CoGAPS120@sampleFactors)
 colnames(pWeights)<-rownames(pData(se))
 rownames(pWeights)<-paste("pattern",c(1:120),sep="_")
 patterns.se<-NewSpatialExperiment(expression_data=pWeights,
@@ -118,7 +137,7 @@ for (i in c(start:(start+n))) {
 
     next3d()
 
-    plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=3,box=F,axes=F,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, main=i, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
+    plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),exprs(patterns.se)[i,]),size=3,box=F,axes=F,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, main=i, alpha=(exprs(patterns.se)[i,]-min(exprs(patterns.se)[i,]))/(max(exprs(patterns.se)[i,])-min(exprs(patterns.se)[i,])))
 }
 
 ```
@@ -127,7 +146,7 @@ for (i in c(start:(start+n))) {
 i<-88    #67,70,77,101,88,105,106
 open3d()
 par3d(windowRect = c(20, 30, 1200, 1200))
-plot3d(coordinates(patterns.se),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
+plot3d(coordinates(patterns.se),col=myColorRamp(palette=inferno(100),exprs(patterns.se)[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, alpha=(exprs(patterns.se)[i,]-min(exprs(patterns.se)[i,]))/(max(exprs(patterns.se)[i,])-min(exprs(patterns.se)[i,])))
 movie3d(spin3d(axis = c(1, 1, 1), rpm = 6),duration = 10,movie = paste0("NNMF120",".1","Pattern_", as.character(i)),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 while (rgl.cur() > 0) {
             rgl.close()
@@ -136,8 +155,9 @@ while (rgl.cur() > 0) {
 
 ```{r merge, eval=FALSE}
 open3d()
-i<-65 # Look at 69 next and then 75, then 95+CTX
-structures <- c("root","RSP")
+par3d(windowRect = c(20, 30, 800, 800))
+i<-63 # Look at 40(root only),
+structures <- c("root", "MY-sen")
 mesh_list <- map(structures, ccf_2017_mesh)
 
 names(mesh_list) <- structures
@@ -147,15 +167,15 @@ ylim<-xlim
 zlim<-ylim
 
 plot_ccf_meshes(mesh_list,
-                fg_structure = c("RSP"),
+                fg_structure = c("MY-sen"),
                 fg_alpha = 0.2,
                 bg_structure = "root",
                 style="matte"
                 )
-par3d(windowRect = c(20, 30, 800, 800))
-points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),NNMF120.1$H[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(NNMF120.1$H[i,]-min(NNMF120.1$H[i,]))/(max(NNMF120.1$H[i,])-min(NNMF120.1$H[i,])))
 
-movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0("NNMF120",".1","Pattern_", as.character(i)),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),exprs(patterns.se)[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(exprs(patterns.se)[i,]-min(exprs(patterns.se)[i,]))/(max(exprs(patterns.se)[i,])-min(exprs(patterns.se)[i,])))
+
+movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0("NNMF120",".1","Pattern_", as.character(i),"_MY-sen"),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 ```
 
 # Import scRNA-Seq data and convert to cell_data_set
@@ -165,28 +185,178 @@ target_data<-readr::read_csv(target_data_path)
 target_genes<-as.data.frame(target_data[,1])
 rownames(target_genes)<-target_genes$gene
 
-target_data<-as(as.matrix(target_data[,-1]),"sparseMatrix")
+#target_data<-as(as.matrix(target_data[,-1]),"sparseMatrix")
+target_data<-target_data[,-1]
+target_data<-as.matrix(target_data)
 
 rownames(target_data)<-rownames(target_genes)
 
 cell_info<-data.frame(row.names=colnames(target_data),cell_id=colnames(target_data))
 
-cds<-new_cell_data_set(target_data,
-                       gene_metadata=target_genes,
-                       cell_metadata=cell_info)
+target_data_subset<-target_data[,c(1:100)]
+
+#cds<-new_cell_data_set(target_data,
+#                       gene_metadata=target_genes,
+#                       cell_metadata=cell_info)
 
 ```
 
 # Projection
 ```{r}
-A.weights<-NNMF120.1$W
-length(intersect(rownames(A.weights),rownames(rowData(cds))))
+#A.weights<-NNMF120.1$W
+A.weights<-Energy_imputed_lognorm_CoGAPS120@featureLoadings
+length(intersect(rownames(A.weights),rownames(target_data_subset)))
 
 library(projectR)
 
-cell.projections<-projectR(exprs(cds),loadings = A.weights)
+cell.projections<-projectR(log10(target_data+1),loadings = A.weights)
+
+patterns.scaled<-apply(as.matrix(exprs(patterns.se)),1,function(x){
+  scale(x)
+})
+patterns.scaled<-t(patterns.scaled)
+
+#projection.cov <- cov(cell.projections,as.matrix(exprs(patterns.se)))
+projection.dot <- t(cell.projections)%*%as.matrix(exprs(patterns.se))
+#projection.dot.scaled <- t(cell.projections)%*%patterns.scaled
+
+#voxel_idx<-apply(projection.cov,1,which.max)
+voxel_idx<-apply(projection.dot,1,which.max)
+#voxel_idx<-apply(projection.dot.scaled,1,which.max)
+
+open3d()
+par3d(windowRect = c(20, 30, 800, 800))
+i<-65 # Look at 69 next and then 75, then 95+CTX
+structures <- c("root","VIS")
+mesh_list <- map(structures, ccf_2017_mesh)
+
+names(mesh_list) <- structures
+
+xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+ylim<-xlim
+zlim<-ylim
+
+plot_ccf_meshes(mesh_list,
+                fg_structure = c("VIS"),
+                fg_alpha = 0.2,
+                bg_structure = "root",
+                style="matte"
+                )
+
+
+points3d(sf::st_coordinates(se@spatialMap[as.numeric(names(table(voxel_idx))),]),col=myColorRamp(palette=inferno(100),log10(table(voxel_idx))),size=10,box=F,axes=F)
+
+movie3d(spin3d(axis = c(0, 1, 0), rpm = 12),fps=20, duration = 5,movie = "Naive_projection_attempt_heatmap",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+```
+
+# One hot encoding of structural features vs pattern usage heatmap
+```{r}
+full_tree_paths<-lapply(full_ccf_annot$Annot,function(x){tree_path(x,ontology_df)})
+full_tree_paths_subset<-full_tree_paths[coordID_annotation_dev_v3_left]
+sample(full_tree_paths_subset,5)
+
+# Make 1-hot encoding matrix by pixels
+annot.mat<-c()
+for(i in unique(ontology_df$id)){
+  #print(i)
+  idx<-as.numeric(unlist(lapply(full_tree_paths_subset,function(x){i %in% x})))
+  annot.mat<-cbind(annot.mat,idx)
+}
+colnames(annot.mat)<-unique(ontology_df$id)
+annot.mat<-as.matrix(annot.mat)
+
+patterns.matrix<-t(scale(t(exprs(patterns.se)),center=FALSE))
+
+pattern.annot.cor<-cor(t(patterns.matrix),annot.mat)
+
+# Create vector of major structures for heatmap
+structure_col<-rep("NA",length=dim(pattern.annot.cor)[2])
+top_level_ids<-ontology_df[ontology_df$parent_structure_id %in% c(567,343,512),"id"]
+for(i in c(1:length(unique(ontology_df$id)))){
+  for(t in top_level_ids){
+    if(t %in% tree_path(unique(ontology_df$id)[i],ontology_df)){
+      name<-ontology_df$name[ontology_df$id==t]
+      structure_col[i]<-as.character(name)
+    }
+  }
+}
+
+pos_struct_idx<-apply(pattern.annot.cor,2,function(x){!any(is.na(x))})
+
+
+cor_cutoff<-0.3
+high_cor_val<-apply(pattern.annot.cor,2,function(x){any(x>=cor_cutoff)})
+
+
+annotation_col<-data.frame("structure"=structure_col)
+rownames(annotation_col)<-unique(ontology_df$id)
+
+
+
+library(pheatmap)
+plotMat<-pattern.annot.cor[,pos_struct_idx&high_cor_val]
+plotAnnotCol<-as.data.frame(annotation_col[pos_struct_idx&high_cor_val,])
+colnames(plotAnnotCol)<-"structure"
+plotAnnotCol$structure<-as.character(plotAnnotCol$structure)
+rownames(plotAnnotCol)<-as.character(unique(ontology_df$id)[pos_struct_idx&high_cor_val])
+#rownames(plotAnnotCol)<-unlist(lapply(rownames(plotAnnotCol),function(x){ontology_df$name[ontology_df$id==x]}))
+pheatmap(plotMat,annotation_col=plotAnnotCol,cutree_rows=8)
+
+pdf("~/Downloads/structure_by_pattern_heatmap.pdf",width=30,height=20)
+  pheatmap(plotMat,annotation_col=plotAnnotCol,cutree_rows=8,border_color="black",border=TRUE)
+dev.off()
+```
+
+# Plot pattern:structure combo
+```{r plot_pattern_and_structure, eval=FALSE}
+
+pat_struct_plot<-function(structure_id,pattern){
+  
+  open3d()
+  par3d(windowRect = c(20, 30, 800, 800))
+  i<-pattern # Look at 40(root only),
+  print(ontology_df$name[ontology_df$id==structure_id])
+  structures <- c("root", ontology_df$acronym[ontology_df$id==structure_id])
+  mesh_list <- map(structures, ccf_2017_mesh)
+  
+  names(mesh_list) <- structures
+  
+  xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+  ylim<-xlim
+  zlim<-ylim
+  
+  plot_ccf_meshes(mesh_list,
+                  fg_structure = c(ontology_df$acronym[ontology_df$id==structure_id]),
+                  fg_alpha = 0.2,
+                  bg_structure = "root",
+                  style="matte"
+                  )
+  
+  points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),exprs(patterns.se)[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(exprs(patterns.se)[i,]-min(exprs(patterns.se)[i,]))/(max(exprs(patterns.se)[i,])-min(exprs(patterns.se)[i,])),title=ontology_df$name[ontology_df$id==structure_id])
+
+}
+
+pat_struct_plot(961,68)
+pat_struct_plot(754,84)
+pat_struct_plot(159,31)
+pat_struct_plot(549,85)
+pat_struct_plot(856,43)
+pat_struct_plot(1097,75)
+pat_struct_plot(322,80)
+pat_struct_plot(669,88)
+pat_struct_plot(726,46)
+pat_struct_plot(4,79)
+pat_struct_plot(645,25)
+pat_struct_plot(909,40)
+pat_struct_plot(322,90)
+pat_struct_plot(1041,92)
+
+movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = "Pattern_85_thalamus",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+```
+
 
 ```
+
 
 
 
