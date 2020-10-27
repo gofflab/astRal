@@ -92,10 +92,26 @@ se <- NewSpatialExperiment(expression_data=energy.annot,
 ```
 
 ```{r}
+
 spatial_plot_3d(se,color_by="Satb2")
+par3d(windowRect = c(20, 30, 400, 400))
+movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Satb2",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
 spatial_plot_3d(se,color_by="Otx2")
+par3d(windowRect = c(20, 30, 400, 400))
+movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Otx2",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
 spatial_plot_3d(se,color_by="Rorb")
+par3d(windowRect = c(20, 30, 400, 400))
+movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Rorb",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
 spatial_plot_3d(se,color_by="Drd1")
+par3d(windowRect = c(20, 30, 400, 400))
+movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Drd1",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
+spatial_plot_3d(se,color_by="Calb1")
+par3d(windowRect = c(20, 30, 400, 400))
+movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Calb1",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 ```
 
 # NNMF Patterns
@@ -139,6 +155,8 @@ for (i in c(start:(start+n))) {
 
     plot3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),exprs(patterns.se)[i,]),size=3,box=F,axes=F,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim, main=i, alpha=(exprs(patterns.se)[i,]-min(exprs(patterns.se)[i,]))/(max(exprs(patterns.se)[i,])-min(exprs(patterns.se)[i,])))
 }
+  
+rgl.snapshot( "~/Downloads/patterns.png", fmt = "png", top = TRUE )
 
 ```
 
@@ -180,10 +198,11 @@ movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0(
 
 # Import scRNA-Seq data and convert to cell_data_set
 ```{r}
-target_data_path<-"/Volumes/Data/Users/rotations/weifeng/projection/visual_cortex/GSE71585_RefSeq_counts.csv"
-target_data<-readr::read_csv(target_data_path)
+#target_data_path<-"/Volumes/Data/Users/rotations/weifeng/projection/visual_cortex/GSE71585_RefSeq_counts.csv"
+target_data_path<-"/Volumes/Data/Users/rotations/weifeng/projection/hypothalamus/GSE87544_Merged_17samples_14437cells_count\ 2.txt"
+target_data<-readr::read_tsv(target_data_path)
 target_genes<-as.data.frame(target_data[,1])
-rownames(target_genes)<-target_genes$gene
+rownames(target_genes)<-target_genes$Gene
 
 #target_data<-as(as.matrix(target_data[,-1]),"sparseMatrix")
 target_data<-target_data[,-1]
@@ -211,23 +230,27 @@ library(projectR)
 
 cell.projections<-projectR(log10(target_data+1),loadings = A.weights)
 
-patterns.scaled<-apply(as.matrix(exprs(patterns.se)),1,function(x){
-  scale(x)
-})
-patterns.scaled<-t(patterns.scaled)
+# patterns.scaled<-apply(as.matrix(exprs(patterns.se)),1,function(x){
+#   scale(x)
+# })
+# patterns.scaled<-t(patterns.scaled)
+
+patterns.scaled<-as.matrix(t(scale(t(exprs(patterns.se)),center=FALSE)))
 
 #projection.cov <- cov(cell.projections,as.matrix(exprs(patterns.se)))
-projection.dot <- t(cell.projections)%*%as.matrix(exprs(patterns.se))
+#projection.dot <- t(cell.projections)%*%as.matrix(exprs(patterns.se))
 #projection.dot.scaled <- t(cell.projections)%*%patterns.scaled
+projection.cor <- cor(cell.projections,patterns.scaled)
+
 
 #voxel_idx<-apply(projection.cov,1,which.max)
-voxel_idx<-apply(projection.dot,1,which.max)
-#voxel_idx<-apply(projection.dot.scaled,1,which.max)
+#voxel_idx<-apply(projection.dot,1,which.max)
+voxel_idx<-apply(projection.cor,1,which.max)
 
 open3d()
 par3d(windowRect = c(20, 30, 800, 800))
 i<-65 # Look at 69 next and then 75, then 95+CTX
-structures <- c("root","VIS")
+structures <- c("root","HIP")
 mesh_list <- map(structures, ccf_2017_mesh)
 
 names(mesh_list) <- structures
@@ -237,7 +260,7 @@ ylim<-xlim
 zlim<-ylim
 
 plot_ccf_meshes(mesh_list,
-                fg_structure = c("VIS"),
+                fg_structure = c("HIP"),
                 fg_alpha = 0.2,
                 bg_structure = "root",
                 style="matte"
@@ -246,7 +269,7 @@ plot_ccf_meshes(mesh_list,
 
 points3d(sf::st_coordinates(se@spatialMap[as.numeric(names(table(voxel_idx))),]),col=myColorRamp(palette=inferno(100),log10(table(voxel_idx))),size=10,box=F,axes=F)
 
-movie3d(spin3d(axis = c(0, 1, 0), rpm = 12),fps=20, duration = 5,movie = "Naive_projection_attempt_heatmap",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+movie3d(spin3d(axis = c(0, 1, 0), rpm = 12),fps=20, duration = 5,movie = "Imputed_CoGAPS_consensus_patterns_projection_attempt_heatmap_hippocampus",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 ```
 
 # One hot encoding of structural features vs pattern usage heatmap
@@ -286,7 +309,7 @@ pos_struct_idx<-apply(pattern.annot.cor,2,function(x){!any(is.na(x))})
 
 cor_cutoff<-0.3
 high_cor_val<-apply(pattern.annot.cor,2,function(x){any(x>=cor_cutoff)})
-
+table(high_cor_val)
 
 annotation_col<-data.frame("structure"=structure_col)
 rownames(annotation_col)<-unique(ontology_df$id)
