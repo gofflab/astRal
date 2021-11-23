@@ -28,7 +28,7 @@ library(Matrix)
 #library(monocle3)
 #library(sf)
 #library(NNLM)
-
+library(tricycle)
 ```
 
 ```{r}
@@ -56,7 +56,7 @@ full_ccf_annot<-ccf_annotation(age="Adult",
                                array_spacing=200,
                                coco_reflect=TRUE)
 
-
+# Recursively identifies ALL ontology structure IDs associated with each voxel
 tree_path<-function(id,ontology_df){
   if(id==0){
     return(-1)
@@ -83,14 +83,18 @@ reduced.annot<-full_ccf_annot[coordID_annotation_dev_v3_left,]
 #oa <- array(ontology_df$acronym[match(ga, ontology_df$id)], dim = dim(ga))
 ```
 
-Create SpatialExperiment object from Allen in situ dataset
+#Create SpatialExperiment object from Allen in situ dataset
 ```{r}
 se <- NewSpatialExperiment(expression_data=energy.annot,
                            spatial_coords=reduced.annot,
                               barcode_metadata = NULL,
                               gene_metadata = NULL)
+
+assay(se,'logcounts')<-assay(se,'counts')+1
+
 ```
 
+## Some sample images of gene expression...
 ```{r}
 
 spatial_plot_3d(se,color_by="Satb2")
@@ -113,6 +117,46 @@ spatial_plot_3d(se,color_by="Calb1")
 par3d(windowRect = c(20, 30, 400, 400))
 movie3d(spin3d(axis = c(1, 0, 0), rpm = 12),fps=20, duration = 5,movie = "Calb1",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
 ```
+
+# Tricycle projection
+```{r}
+se.tricycle<-project_cycle_space(se,exprs_values='logcounts',gname.type='SYMBOL')
+se.tricycle<-estimate_cycle_position(se.tricycle)
+
+plot_emb_circle_scale(se.tricycle)
+circle_scale_legend()
+
+xlim<-c(1,max(sf::st_bbox(se.tricycle@spatialMap)))
+  ylim<-xlim
+  zlim<-ylim
+
+hue.colors = c(
+        "#2E22EA", "#9E3DFB", "#F86BE2", "#FCCE7B", "#C4E416", "#4BBA0F", "#447D87", "#2C24E9"
+    )
+  
+open3d()
+par3d(windowRect = c(20, 30, 1200, 1200))
+plot3d(coordinates(se.tricycle),col=myColorRampTricycle(palette=hue.colors,values=colData(se.tricycle)$tricyclePosition),size=10,box=T,axes=T,xlab="",ylab="",zlab="",xlim=xlim,ylim=ylim,zlim=zlim,alpha=0.1)
+movie3d(spin3d(axis = c(1, 1, 1), rpm = 6),duration = 10,movie = "Tricycle_Allen_InSitu_P56_Brain",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
+
+structures <- c("root", "HY")
+mesh_list <- map(structures, ccf_2017_mesh)
+
+names(mesh_list) <- structures
+
+plot_ccf_meshes(mesh_list,
+                fg_structure = c("Hy"),
+                fg_alpha = 0.2,
+                bg_structure = "root",
+                bg_alpha = 0.1,
+                style="matte"
+                )
+par3d(windowRect = c(20, 30, 1200, 1200))
+points3d(sf::st_coordinates(se.tricycle@spatialMap),col=myColorRampTricycle(values=colData(se.tricycle)$tricyclePosition),size=10,box=T,axes=T,xlab="",ylab="",zlab="",alpha=0.2, main="Thalamus")
+movie3d(spin3d(axis = c(1, 1, 1), rpm = 6),duration = 10,movie = "Tricycle_Allen_InSitu_P56_Brain_Hypothalamus",dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+```
+
 
 # NNMF Patterns
 ```{r,eval=FALSE}

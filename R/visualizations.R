@@ -43,7 +43,7 @@ spatial_plot<-function(se,color_by=NULL,shape_by=NULL,plot_images=FALSE){
 #' @import sf
 # #' @examples
 #'
-spatial_plot_3d<-function(se,color_by=NULL,shape_by=NULL,plot_images=FALSE){
+spatial_plot_3d<-function(se,color_by=NULL,shape_by=NULL,plot_images=FALSE,size=3){
   coords<-sf::st_coordinates(se@spatialMap)
   assertthat::assert_that(dim(coords)[2]==3
                           , msg = "SpatialMap must have 3 dimensional coordinates")
@@ -68,7 +68,7 @@ spatial_plot_3d<-function(se,color_by=NULL,shape_by=NULL,plot_images=FALSE){
   zlim<-ylim
 
   aspect_ratio<-aba_array_dims()/aba_array_dims()[1]
-  rgl::plot3d(coords,aspect_ratio=aspect_ratio,col=col,xlim=xlim,ylim=ylim,zlim=zlim,box=F,axes=F,xlab="",ylab="",zlab="",size=3,main=color_by,alpha=(expr_values-min(expr_values))/(max(expr_values)-min(expr_values)))
+  rgl::plot3d(coords,aspect_ratio=aspect_ratio,col=col,xlim=xlim,ylim=ylim,zlim=zlim,box=F,axes=F,xlab="",ylab="",zlab="",size=size,main=color_by,alpha=(expr_values-min(expr_values))/(max(expr_values)-min(expr_values)))
 }
 
 

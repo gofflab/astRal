@@ -1,0 +1,274 @@
+---
+title: "Barrel Cortex Spatial Patterns (Allen In Situ)"
+author: "Loyal Goff"
+date: "6/14/2021"
+output: html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(cocoframer)
+library(purrr)
+library(viridisLite) # optional - nice color palettes
+library(dplyr)
+library(reshape2)
+#library(Seurat)
+library(rgl)
+#library(nat)
+library(Matrix)
+#library(monocle3)
+#library(sf)
+library(NNLM)
+library(astRal)
+library(SummarizedExperiment)
+#library(tricycle)
+```
+
+```{r}
+#Sagittal Energy Matrix
+ccf_v3_coords_file<-system.file("extdata","p56coord_dev_v3_left.RData",package="astRal")
+struct_file<-system.file("extdata","p56_dev_structureID_left.RData",package="astRal")
+group_file<-system.file("extdata","group.RData",package="astRal")
+energy_file<-system.file("extdata","energy_dev_v3_sagittal.RData",package="astRal")
+load(ccf_v3_coords_file)
+load(struct_file)
+load(group_file)
+load(energy_file)
+
+```
+
+```{r}
+# Get structure ontology annotations
+#ga <- get_ccf_grid_annotation()
+
+ontology <- get_mba_ontology()
+ontology_df <- flatten_mba_ontology(ontology)
+
+full_ccf_annot<-ccf_annotation(age="Adult",
+                               make_array=FALSE,
+                               array_spacing=200,
+                               coco_reflect=TRUE)
+
+# Recursively identifies ALL ontology structure IDs associated with each voxel
+tree_path<-function(id,ontology_df){
+  if(id==0){
+    return(-1)
+  }else{
+  path<-c(id)
+  while(id!=997){
+    id<-ontology_df$parent_structure_id[ontology_df$id==id]
+    path<-c(path,id)
+  }
+  return(path)
+  }
+}
+
+#energy_mat_dims<-aba_array_dims(resolution=200)
+
+# Add column names to energy matrix
+colnames(energy.mat)<-rownames(full_ccf_annot)
+
+# Reduce full annotation to only that subset with signal in Allen in situ database
+energy.annot<-energy.mat[,coordID_annotation_dev_v3_left]
+reduced.annot<-full_ccf_annot[coordID_annotation_dev_v3_left,]
+
+# build a 3d array of ontology structure acronyms - easier to deal with than IDs
+#oa <- array(ontology_df$acronym[match(ga, ontology_df$id)], dim = dim(ga))
+```
+
+#Create SpatialExperiment object from Allen in situ dataset
+```{r}
+se <- NewSpatialExperiment(expression_data=energy.annot,
+                           spatial_coords=reduced.annot,
+                              barcode_metadata = NULL,
+                              gene_metadata = NULL)
+
+assay(se,'logcounts')<-log10(assay(se,'counts')+1)
+
+```
+
+# Subset to only expression values in S1 Barrel Subfield
+
+## Getting full ontology map for each voxel
+```{r}
+full_tree_paths<-lapply(full_ccf_annot$Annot,function(x){tree_path(x,ontology_df)})
+full_tree_paths_subset<-full_tree_paths[coordID_annotation_dev_v3_left]
+sample(full_tree_paths_subset,5)
+
+assertthat::are_equal(length(full_tree_paths_subset),dim(se)[2])
+
+# Filter to only those with ID associated with S1 barrel subfield
+barrel_names<-ontology_df$name[grepl("[B|b]arrel",ontology_df$name)]
+primary_somatosensory_names<-ontology_df$name[grepl("Primary somatosensory",ontology_df$name)]
+primary_somatosensory_ids<-ontology_df$id[grepl("Primary somatosensory",ontology_df$name)]
+somatosensory_names<-ontology_df$name[grepl("[S|s]omatosensory",ontology_df$name)]
+somatosensory_ids<-ontology_df$id[grepl("[S|s]omatosensory",ontology_df$name)]
+#S1_name<-"Primary somatosensory area"
+#S1_name<-"Primary somatosensory area, barrel field"
+S1_name<-"Somatosensory areas"
+S1_id<-ontology_df$id[grepl(paste0("^",S1_name,"$"),ontology_df$name)]
+
+# Subset full_tree path for left hemisphere based to only voxels in S1 area
+S1_idx<-unlist(lapply(full_tree_paths_subset,function(x){any(x %in% somatosensory_ids)}))
+
+se.S1<-se[,S1_idx]
+se.S1@spatialMap<-se@spatialMap[S1_idx,] # Need to specifically subset @spatialMap slot as this is not currently done in parallel with other data slicing in astRal yet
+
+#Confirmatory plots
+spatial_plot_3d(se.S1,color_by="Satb2",size=10)
+par3d(windowRect = c(20, 30, 400, 400))
+spatial_plot_3d(se.S1,color_by="Bcl11b",size=10)
+par3d(windowRect = c(20, 30, 400, 400))
+spatial_plot_3d(se.S1,color_by="Rorb",size=10)
+par3d(windowRect = c(20, 30, 400, 400))
+spatial_plot_3d(se.S1,color_by="Tle4",size=10)
+par3d(windowRect = c(20, 30, 400, 400))
+
+open3d()
+par3d(windowRect = c(20, 30, 800, 800))
+i<-35 # Random gene index
+structures <- c("root", "SS")
+mesh_list <- map(structures, ccf_2017_mesh)
+
+names(mesh_list) <- structures
+
+xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+ylim<-xlim
+zlim<-ylim
+
+plot_ccf_meshes(mesh_list,
+                fg_structure = c("SS"),
+                fg_alpha = 0.2,
+                bg_structure = "root",
+                style="matte"
+                )
+
+points3d(sf::st_coordinates(se.S1@spatialMap),col=myColorRamp(palette=inferno(100),pmax(assay(se.S1)[i,],0)),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(SummarizedExperiment::assay(se.S1)[i,]-min(SummarizedExperiment::assay(se.S1)[i,]))/(max(SummarizedExperiment::assay(se.S1)[i,])-min(SummarizedExperiment::assay(se.S1)[i,])))
+
+
+```
+
+# NMF patterns on S1
+```{r}
+set.seed<-19790119
+nPatterns<-40
+#S1.NMF<-NNLM::nnmf(as.matrix(exprs(se.S1)),k=nPatterns,verbose=T,n.threads=8)
+#saveRDS(S1.NMF,file="NMF_k30_nolog_patterns.rds")
+
+#S1.NMF<-NNLM::nnmf(log10(pmax(as.matrix(exprs(se.S1)),0)+1),k=nPatterns,verbose=T,n.threads=8)
+#saveRDS(S1.NMF,file="NMF_k30_log_patterns.rds")
+
+library(CoGAPS)
+params<-new("CogapsParams")
+params<-setParam(params, "nPatterns",nPatterns)
+params<-setParam(params, "nIterations",20000)
+params<-setParam(params, "seed", set.seed)
+cogaps.exprs<-pmax(as.matrix(assay(se.S1)),0)
+S1.NMF<-CoGAPS(cogaps.exprs,params = params, nThreads=8)
+saveRDS(S1.NMF,file="CoGAPS_k40_nolog_patterns.rds")
+
+```
+
+## Create patterns.se for patterns learned from just S1 cortex
+```{r}
+patterns.exprs<-t(S1.NMF@sampleFactors)
+colnames(patterns.exprs)<-colnames(se.S1)
+rownames(patterns.exprs)<-paste0("CoGAPS.Pattern.",c(1:nPatterns))
+patterns.se<-NewSpatialExperiment(expression_data=patterns.exprs,
+                           spatial_coords=se.S1@spatialMap,
+                              barcode_metadata = NULL,
+                              gene_metadata = NULL)
+
+```
+
+
+# Merging patterns with cocoframer outlines
+
+```{r merge, eval=FALSE}
+structures <- c("root", "SS","SSp-bfd")
+mesh_list <- map(structures, ccf_2017_mesh)
+
+names(mesh_list) <- structures
+
+xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+ylim<-xlim
+zlim<-ylim
+
+for (i in c(1:nPatterns)){
+  print(i)
+  open3d()
+  par3d(windowRect = c(20, 30, 800, 800))
+  plot_ccf_meshes(mesh_list,
+                  fg_structure = c("SS","SSp-bfd"),
+                  fg_color = c("skyblue","orangered","darkgreen","purple"),
+                  fg_alpha = 0.2,
+                  bg_structure = "root",
+                  style="matte"
+                  )
+  
+  points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),SummarizedExperiment::assay(patterns.se)[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(SummarizedExperiment::assay(patterns.se)[i,]-min(SummarizedExperiment::assay(patterns.se)[i,]))/(max(SummarizedExperiment::assay(patterns.se)[i,])-min(SummarizedExperiment::assay(patterns.se)[i,])))
+  
+  rgl.snapshot( paste0("~/Downloads/CoGAPS.pattern.",i,".png"), fmt = "png", top = TRUE )
+  #movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0("NNMF.30.","Pattern_", as.character(i),"_SSp-bfd"),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+  
+  rgl.close()
+}
+
+amplitudes<-S1.NMF@featureLoadings
+rownames(amplitudes)<-rownames(se.S1)
+colnames(amplitudes)<-paste0("CoGAPS.pattern.",c(1:nPatterns))
+DT::datatable(amplitudes)
+```
+
+## Make .png plots for indiidual patterns in 3 cross sections
+```{r}
+i<-38
+structures <- c("root", "SS","SSp-bfd")
+mesh_list <- map(structures, ccf_2017_mesh)
+
+names(mesh_list) <- structures
+
+xlim<-c(1,max(sf::st_bbox(patterns.se@spatialMap)))
+ylim<-xlim
+zlim<-ylim
+
+open3d()
+par3d(windowRect = c(20, 30, 800, 800))
+plot_ccf_meshes(mesh_list,
+                fg_structure = c("SS","SSp-bfd"),
+                fg_color = c("skyblue","orangered","darkgreen","purple"),
+                fg_alpha = 0.2,
+                bg_structure = "root",
+                style="matte"
+                )
+
+points3d(sf::st_coordinates(patterns.se@spatialMap),col=myColorRamp(palette=inferno(100),SummarizedExperiment::assay(patterns.se)[i,]),size=10,box=T,axes=T,xlab="",ylab="",zlab="", alpha=(SummarizedExperiment::assay(patterns.se)[i,]-min(SummarizedExperiment::assay(patterns.se)[i,]))/(max(SummarizedExperiment::assay(patterns.se)[i,])-min(SummarizedExperiment::assay(patterns.se)[i,])))
+
+#Sagittal
+sagittal<-matrix(c(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1),nrow=4,byrow = T)
+par3d(userMatrix = sagittal)
+
+rgl.snapshot( paste0("~/Downloads/CoGAPS.pattern.",i,"_sagittal.png"), fmt = "png", top = TRUE )
+
+#Coronal
+coronal<-matrix(c(0,0,1,0,0,1,0,0,-1,0,0,0,0,0,0,1),nrow=4,byrow = T)
+par3d(userMatrix = coronal)
+
+rgl.snapshot( paste0("~/Downloads/CoGAPS.pattern.",i,"_coronal.png"), fmt = "png", top = TRUE )
+
+#Transverse
+transverse<-matrix(c(0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,1),nrow=4,byrow = T)
+par3d(userMatrix = transverse)
+
+rgl.snapshot( paste0("~/Downloads/CoGAPS.pattern.",i,"_transverse.png"), fmt = "png", top = TRUE )
+#movie3d(spin3d(axis = c(1, 1, 1), rpm = 12),fps=20, duration = 5,movie = paste0("NNMF.30.","Pattern_", as.character(i),"_SSp-bfd"),dir = "/Users/loyalgoff/Downloads/", convert= NULL)
+
+rgl.close()
+```
+
