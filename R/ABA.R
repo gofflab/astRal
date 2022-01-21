@@ -163,7 +163,71 @@ flatten_ontology <- function(ontology, ontology_df = NULL) {
   return(ontology_df)
 }
 
+######################
+# ABA Energy Matrix Retrieval
+######################
 
+#' fetch_current_sectionData_objects
+#'
+#' @param age
+#'
+#' @return
+#' @export
+#'
+#'
+fetch_current_sectionData_objects <- function(age="P56"){
+  #All sagittal ISH SectionDataSets from P56 Allen Mouse
+  age<-"P56"
+
+  # Construct URL to fetch list of saggital sectionData elements from specific age
+  # TODO: generalize this function a bit more.  Currently tied to saggital only (for 'completness' of dataset)
+  url<-paste0("http://api.brain-map.org/api/v2/data/query.json?num_rows=all&criteria=model::SectionDataSet,rma::criteria,[failed$eq'false'],products[id$eq'3'],specimen(donor(age[name$in'",
+              age,
+              "'])),plane_of_section[name$eq'sagittal'],rma::include,genes,specimen(donor(age)),plane_of_section")
+  sectionData<-read_json(url)
+  datasets<-lapply(sectionData[["msg"]],function(x){
+    if(length(x[['genes']])==1){
+      return(c(x[['id']],x[['genes']][[1]][['entrez_id']],x[['genes']][[1]][['acronym']]))
+    }
+  })
+  datasets<-do.call(rbind,datasets)
+  colnames(datasets)<-c("SectionDataId","entrez_id","gene_short_name")
+  datasets<-as.data.frame(datasets)
+  datasets$SectionDataId<-as.numeric(datasets$SectionDataId)
+  return(datasets)
+}
+
+#' Retrieve raw values for a particular SectionData object from ABA.
+#' Very much adapted from github.com/alleninstitute/cocoframer
+#'
+#' @param api_id
+#' @param values
+#'
+#' @return
+#' @export
+#'
+#' @examples
+get_aba_ish_raw <- function(api_id,
+                            values = "energy") {
+  #ABA API query
+  baseURL<-"http://api.brain-map.org/grid_data/download/"
+  api_query <- paste0(baseURL,
+                      trimws(api_id),
+                      "?include=",values)
+  # CCF Annotation Dimensions
+  # TODO: This needs to be more flexible for other CCF sizes/dimensions
+  vol_dims <- c(67, 41, 58)
+
+  # Download and read the CCF Annotation coordinates
+  temp <- tempfile(fileext = ".zip")
+  download.file(api_query, temp, mode = "wb")
+  raw_file <- unz(temp, "energy.raw", "rb")
+  vol_raw <- readBin(raw_file, "double", size = 4, n = vol_dims[1]*vol_dims[2]*vol_dims[3])
+  close(raw_file)
+  file.remove(temp)
+  return(vol_raw)
+  #array(vol_raw, dim = vol_dims)
+}
 
 #Sagittal Energy Matrix
 #ccf_v3_coords_file<-system.file("extdata","p56coord_dev_v3_left.RData",package="astRal")

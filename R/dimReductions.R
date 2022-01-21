@@ -3,27 +3,27 @@
 #' Title
 #'
 #' @param se A SpatialExperiment object
-#' @param method Pattern discovery method.  Must be one of c("NNMF").  [default: "NNMF"]
+#' @param method Pattern discovery method.  Must be one of c("NMF").  [default: "NMF"]
 #' @param rank Where applicable, the number of dimensions to reduce into (e.g. 'k') [default: 20]
 #' @param verbose A logical indicating verbose output. [default: FALSE]
 #' @param ...
 #'
 #' @return
-#' @importFrom NNLM nnmf
+#' @importFrom RcppML nmf
 #' @export
 #'
 reduce_dimension_spatial<-function(se,
-                    method=c("NNMF"),
+                    method=c("NMF"),
                     rank = 20, #arbitrary
                     verbose=TRUE,
                     ...){
   extra_arguments <- list(...)
 
-  if(method=="NNMF"){
-    se.nmf<-nnmf(as.matrix(log10(exprs(se))),k=rank)
-    se.lem<-LinearEmbeddingMatrix(sampleFactors=t(se.nmf$H),
-                                  featureLoadings=se.nmf$W,
-                                  metadata = list("method"="NNMF")
+  if(method=="NMF"){
+    se.nmf<-nmf(as.matrix(log10(exprs(se))),k=rank)
+    se.lem<-LinearEmbeddingMatrix(sampleFactors=t(se.nmf$h),
+                                  featureLoadings=se.nmf$w,
+                                  metadata = list("method"="NMF")
                                   )
     se@embeddings[[method]]<-se.lem
   }

@@ -4,7 +4,13 @@
 \alias{spatial_plot_3d}
 \title{3D spatial plot}
 \usage{
-spatial_plot_3d(se, color_by = NULL, shape_by = NULL, plot_images = FALSE)
+spatial_plot_3d(
+  se,
+  color_by = NULL,
+  shape_by = NULL,
+  plot_images = FALSE,
+  size = 3
+)
 }
 \arguments{
 \item{se}{A SpatialExperiment Object}

@@ -4,18 +4,12 @@
 \alias{reduce_dimension_spatial}
 \title{Title}
 \usage{
-reduce_dimension_spatial(
-  se,
-  method = c("NNMF"),
-  rank = 20,
-  verbose = TRUE,
-  ...
-)
+reduce_dimension_spatial(se, method = c("NMF"), rank = 20, verbose = TRUE, ...)
 }
 \arguments{
 \item{se}{A SpatialExperiment object}
 
-\item{method}{Pattern discovery method.  Must be one of c("NNMF").  [default: "NNMF"]}
+\item{method}{Pattern discovery method.  Must be one of c("NMF").  [default: "NMF"]}
 
 \item{rank}{Where applicable, the number of dimensions to reduce into (e.g. 'k') [default: 20]}
 
